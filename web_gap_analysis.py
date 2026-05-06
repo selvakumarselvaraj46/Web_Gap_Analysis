@@ -2,11 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 st.set_page_config(page_title="Gap Analysis Dashboard", layout="wide", page_icon="📊")
 
-# ── Custom CSS ──────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     .main { background-color: #0f1117; }
@@ -28,7 +26,12 @@ st.markdown("""
 COLORS = ["#6366f1", "#22d3ee", "#f59e0b", "#10b981", "#f43f5e",
           "#a78bfa", "#34d399", "#fb923c", "#38bdf8", "#e879f9"]
 
-# ── Data ─────────────────────────────────────────────────────────────────────
+# ── Helper: KPI card ──────────────────────────────────────────────────────────
+def kpi(col, title, val, sub, color):
+    col.markdown(f"""<div class="metric-card" style="border-color:{color}">
+        <h3>{title}</h3><p>{val}</p><small>{sub}</small></div>""", unsafe_allow_html=True)
+
+# ── Data ──────────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
     fashion = pd.DataFrame({
@@ -54,7 +57,7 @@ def load_data():
     })
 
     events = pd.DataFrame({
-        "Event ID": [f"E{str(i).zfill(3)}" for i in range(1,21)],
+        "Event ID": [f"E{str(i).zfill(3)}" for i in range(1, 21)],
         "Event Name": ["Annual Tech Summit 2025","Bridal Fashion Week","Startup Pitch Night","Rock Music Festival",
                         "Corporate Leadership Summit","Children's Art Carnival","Food & Wine Expo","Women in Tech Conference",
                         "Classical Dance Festival","Real Estate Expo 2025","Marathon – Run for Cause","Digital Marketing Bootcamp",
@@ -75,7 +78,7 @@ def load_data():
     events["Fill Rate (%)"] = (events["Tickets Sold"] / events["Capacity"] * 100).round(1)
 
     marketing = pd.DataFrame({
-        "Campaign ID": [f"DM{str(i).zfill(3)}" for i in range(1,21)],
+        "Campaign ID": [f"DM{str(i).zfill(3)}" for i in range(1, 21)],
         "Campaign Name": ["Summer Sale Boost","Brand Awareness – Q2","Google Search – Dresses","YouTube Pre-roll Fashion",
                            "LinkedIn B2B Events","Influencer Collab – Zara","Remarketing – Cart Abandon","Email – Festive Offers",
                            "Twitter Promoted Tweets","Snapchat AR Filter","Pinterest Shopping Ads","App Install Campaign",
@@ -85,7 +88,7 @@ def load_data():
                       "Twitter/X","Snapchat","Pinterest","Google UAC","Facebook","Organic","WhatsApp","Spotify",
                       "Instagram+FB","Google Ads","YouTube","Facebook"],
         "Budget": [500,2000,800,1200,600,3000,300,100,400,700,500,1500,350,200,50,800,200,600,2500,900],
-        "Spend": [480,1980,760,950,590,3000,290,100,370,680,490,1440,340,200,50,400,200,580,1200,870],
+        "Spend":  [480,1980,760,950,590,3000,290,100,370,680,490,1440,340,200,50,400,200,580,1200,870],
         "Impressions": [45000,210000,32000,180000,18000,500000,12000,0,60000,95000,40000,250000,28000,75000,0,12000,30000,22000,300000,85000],
         "Clicks": [1200,4200,3840,5400,720,25000,1800,8000,900,3800,2000,7500,1400,6000,3500,600,3000,2640,6000,3400],
         "CTR (%)": [2.67,2,12,3,4,5,15,28.6,1.5,4,5,3,5,8,70,5,10,12,2,4],
@@ -112,21 +115,13 @@ st.sidebar.caption("Data: Web Gap Analysis Dataset · 2025")
 if tab_choice == "🛍️ Fashion":
     st.title("🛍️ Fashion – Product Intelligence")
 
-    # KPIs
     c1, c2, c3, c4 = st.columns(4)
-    total_stock = fashion_df["Stock"].sum()
-    avg_price = fashion_df["Price"].mean()
-    avg_rating = fashion_df["Rating"].mean()
-    low_stock = fashion_df[fashion_df["Status"].isin(["Low Stock","Limited Stock"])].shape[0]
-
-    def kpi(col, title, val, sub, color):
-        col.markdown(f"""<div class="metric-card" style="border-color:{color}">
-            <h3>{title}</h3><p>{val}</p><small>{sub}</small></div>""", unsafe_allow_html=True)
-
-    kpi(c1, "Total Units in Stock", f"{total_stock:,}", "across 20 products", "#6366f1")
-    kpi(c2, "Avg. Price (USD)", f"${avg_price:.2f}", "per product", "#22d3ee")
-    kpi(c3, "Avg. Customer Rating", f"⭐ {avg_rating:.2f} / 5", "20 products rated", "#f59e0b")
-    kpi(c4, "Low / Limited Stock", f"{low_stock} products", "need restock attention", "#f43f5e")
+    kpi(c1, "Total Units in Stock",  f"{fashion_df['Stock'].sum():,}",             "across 20 products",    "#6366f1")
+    kpi(c2, "Avg. Price (USD)",      f"${fashion_df['Price'].mean():.2f}",          "per product",           "#22d3ee")
+    kpi(c3, "Avg. Customer Rating",  f"⭐ {fashion_df['Rating'].mean():.2f} / 5",  "20 products rated",     "#f59e0b")
+    kpi(c4, "Low / Limited Stock",
+        f"{fashion_df[fashion_df['Status'].isin(['Low Stock','Limited Stock'])].shape[0]} products",
+        "need restock attention", "#f43f5e")
 
     st.markdown("---")
     col1, col2 = st.columns(2)
@@ -135,10 +130,9 @@ if tab_choice == "🛍️ Fashion":
         st.markdown('<div class="section-title">Stock by Category</div>', unsafe_allow_html=True)
         cat_stock = fashion_df.groupby("Category")["Stock"].sum().reset_index().sort_values("Stock", ascending=True)
         fig = px.bar(cat_stock, x="Stock", y="Category", orientation="h",
-                     color="Stock", color_continuous_scale="Viridis",
-                     template="plotly_dark")
-        fig.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                          margin=dict(l=0,r=0,t=10,b=0), height=380)
+                     color="Stock", color_continuous_scale="Viridis", template="plotly_dark")
+        fig.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)",
+                          plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=0,r=0,t=10,b=0), height=380)
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
@@ -156,26 +150,32 @@ if tab_choice == "🛍️ Fashion":
         st.markdown('<div class="section-title">Brand Performance (Avg Rating)</div>', unsafe_allow_html=True)
         brand_rating = fashion_df.groupby("Brand")["Rating"].mean().sort_values(ascending=False).reset_index()
         fig3 = px.bar(brand_rating, x="Brand", y="Rating",
-                      color="Rating", color_continuous_scale="RdYlGn",
-                      template="plotly_dark")
-        fig3.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                            margin=dict(l=0,r=0,t=10,b=0), height=350, xaxis_tickangle=-40)
+                      color="Rating", color_continuous_scale="RdYlGn", template="plotly_dark")
+        fig3.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=0,r=0,t=10,b=0),
+                            height=350, xaxis_tickangle=-40)
         st.plotly_chart(fig3, use_container_width=True)
 
     with col4:
         st.markdown('<div class="section-title">Stock Status Breakdown</div>', unsafe_allow_html=True)
         status_counts = fashion_df["Status"].value_counts().reset_index()
-        status_counts.columns = ["Status","Count"]
+        status_counts.columns = ["Status", "Count"]
         fig4 = px.pie(status_counts, names="Status", values="Count",
                       color_discrete_sequence=["#10b981","#f59e0b","#f43f5e"],
                       hole=0.5, template="plotly_dark")
         fig4.update_layout(paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0,r=0,t=10,b=0), height=350)
         st.plotly_chart(fig4, use_container_width=True)
 
+    # ── FIX: .bar() instead of .background_gradient() — no matplotlib needed ──
     st.markdown('<div class="section-title">Product Detail Table</div>', unsafe_allow_html=True)
-    st.dataframe(fashion_df[["Product Name","Category","Brand","Price","Stock","Rating","Status"]]
-                 .style.background_gradient(subset=["Stock","Rating"], cmap="Blues"),
-                 use_container_width=True)
+    display_f = fashion_df[["Product Name","Category","Brand","Price","Stock","Rating","Status"]].copy()
+    st.dataframe(
+        display_f.style
+                 .bar(subset=["Stock"],  color="#6366f1", vmin=0)
+                 .bar(subset=["Rating"], color="#22d3ee", vmin=0, vmax=5)
+                 .format({"Price": "${:.2f}", "Rating": "{:.1f}"}),
+        use_container_width=True
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -184,21 +184,17 @@ if tab_choice == "🛍️ Fashion":
 elif tab_choice == "🎪 Event Management":
     st.title("🎪 Event Management – Performance Overview")
 
-    c1, c2, c3, c4 = st.columns(4)
-    total_rev = events_df["Revenue"].sum()
+    total_rev  = events_df["Revenue"].sum()
     total_sold = events_df["Tickets Sold"].sum()
-    total_cap = events_df["Capacity"].sum()
-    avg_fill = events_df["Fill Rate (%)"].mean()
+    total_cap  = events_df["Capacity"].sum()
+    avg_fill   = events_df["Fill Rate (%)"].mean()
+    sold_out   = events_df[events_df["Status"].isin(["Sold Out","Almost Full"])].shape[0]
 
-    def kpi(col, title, val, sub, color):
-        col.markdown(f"""<div class="metric-card" style="border-color:{color}">
-            <h3>{title}</h3><p>{val}</p><small>{sub}</small></div>""", unsafe_allow_html=True)
-
-    kpi(c1, "Total Revenue (USD)", f"${total_rev:,.0f}", "across 20 events", "#6366f1")
-    kpi(c2, "Tickets Sold", f"{total_sold:,}", f"of {total_cap:,} capacity", "#22d3ee")
-    kpi(c3, "Avg. Fill Rate", f"{avg_fill:.1f}%", "seats occupied", "#f59e0b")
-    sold_out = events_df[events_df["Status"].isin(["Sold Out","Almost Full"])].shape[0]
-    kpi(c4, "Sold Out / Almost Full", f"{sold_out} events", "high demand events", "#10b981")
+    c1, c2, c3, c4 = st.columns(4)
+    kpi(c1, "Total Revenue (USD)",    f"${total_rev:,.0f}",         "across 20 events",           "#6366f1")
+    kpi(c2, "Tickets Sold",           f"{total_sold:,}",            f"of {total_cap:,} capacity", "#22d3ee")
+    kpi(c3, "Avg. Fill Rate",         f"{avg_fill:.1f}%",           "seats occupied",             "#f59e0b")
+    kpi(c4, "Sold Out / Almost Full", f"{sold_out} events",         "high demand events",         "#10b981")
 
     st.markdown("---")
     col1, col2 = st.columns(2)
@@ -207,38 +203,35 @@ elif tab_choice == "🎪 Event Management":
         st.markdown('<div class="section-title">Revenue by Event (Top 10)</div>', unsafe_allow_html=True)
         top_rev = events_df[events_df["Revenue"] > 0].nlargest(10, "Revenue")
         fig = px.bar(top_rev, x="Revenue", y="Event Name", orientation="h",
-                     color="Revenue", color_continuous_scale="Purples",
-                     template="plotly_dark")
-        fig.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                          margin=dict(l=0,r=0,t=10,b=0), height=380)
+                     color="Revenue", color_continuous_scale="Purples", template="plotly_dark")
+        fig.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)",
+                          plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=0,r=0,t=10,b=0), height=380)
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
         st.markdown('<div class="section-title">Ticket Fill Rate by Event</div>', unsafe_allow_html=True)
         fill_sorted = events_df.sort_values("Fill Rate (%)", ascending=True)
         fig2 = px.bar(fill_sorted, x="Fill Rate (%)", y="Event Name", orientation="h",
-                      color="Fill Rate (%)", color_continuous_scale="RdYlGn",
-                      template="plotly_dark")
-        fig2.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                            margin=dict(l=0,r=0,t=10,b=0), height=380)
+                      color="Fill Rate (%)", color_continuous_scale="RdYlGn", template="plotly_dark")
+        fig2.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=0,r=0,t=10,b=0), height=380)
         st.plotly_chart(fig2, use_container_width=True)
 
     col3, col4 = st.columns(2)
 
     with col3:
-        st.markdown('<div class="section-title">Events by City</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Revenue by City</div>', unsafe_allow_html=True)
         city_rev = events_df.groupby("City")["Revenue"].sum().reset_index().sort_values("Revenue", ascending=False)
         fig3 = px.bar(city_rev, x="City", y="Revenue",
-                      color="Revenue", color_continuous_scale="Teal",
-                      template="plotly_dark")
-        fig3.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                            margin=dict(l=0,r=0,t=10,b=0), height=330)
+                      color="Revenue", color_continuous_scale="Teal", template="plotly_dark")
+        fig3.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=0,r=0,t=10,b=0), height=330)
         st.plotly_chart(fig3, use_container_width=True)
 
     with col4:
         st.markdown('<div class="section-title">Event Type Distribution</div>', unsafe_allow_html=True)
         type_counts = events_df["Type"].value_counts().reset_index()
-        type_counts.columns = ["Type","Count"]
+        type_counts.columns = ["Type", "Count"]
         fig4 = px.pie(type_counts, names="Type", values="Count",
                       color_discrete_sequence=COLORS, hole=0.4, template="plotly_dark")
         fig4.update_layout(paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0,r=0,t=10,b=0), height=330)
@@ -262,20 +255,16 @@ elif tab_choice == "🎪 Event Management":
 elif tab_choice == "📣 Digital Marketing":
     st.title("📣 Digital Marketing – Campaign Analytics")
 
-    c1, c2, c3, c4 = st.columns(4)
     total_spend = marketing_df["Spend"].sum()
-    total_conv = marketing_df["Conversions"].sum()
-    total_imp = marketing_df["Impressions"].sum()
-    avg_ctr = marketing_df["CTR (%)"].mean()
+    total_conv  = marketing_df["Conversions"].sum()
+    total_imp   = marketing_df["Impressions"].sum()
+    avg_ctr     = marketing_df["CTR (%)"].mean()
 
-    def kpi(col, title, val, sub, color):
-        col.markdown(f"""<div class="metric-card" style="border-color:{color}">
-            <h3>{title}</h3><p>{val}</p><small>{sub}</small></div>""", unsafe_allow_html=True)
-
+    c1, c2, c3, c4 = st.columns(4)
     kpi(c1, "Total Ad Spend (USD)", f"${total_spend:,.0f}", "across 20 campaigns", "#6366f1")
-    kpi(c2, "Total Conversions", f"{total_conv:,}", "purchases / sign-ups", "#22d3ee")
-    kpi(c3, "Total Impressions", f"{total_imp:,}", "ad views recorded", "#f59e0b")
-    kpi(c4, "Avg. CTR", f"{avg_ctr:.1f}%", "click-through rate", "#10b981")
+    kpi(c2, "Total Conversions",    f"{total_conv:,}",      "purchases / sign-ups", "#22d3ee")
+    kpi(c3, "Total Impressions",    f"{total_imp:,}",       "ad views recorded",    "#f59e0b")
+    kpi(c4, "Avg. CTR",             f"{avg_ctr:.1f}%",      "click-through rate",   "#10b981")
 
     st.markdown("---")
     col1, col2 = st.columns(2)
@@ -284,11 +273,11 @@ elif tab_choice == "📣 Digital Marketing":
         st.markdown('<div class="section-title">ROAS by Campaign</div>', unsafe_allow_html=True)
         roas_df = marketing_df.dropna(subset=["ROAS"]).sort_values("ROAS", ascending=False)
         fig = px.bar(roas_df, x="Campaign Name", y="ROAS",
-                     color="ROAS", color_continuous_scale="RdYlGn",
-                     template="plotly_dark")
+                     color="ROAS", color_continuous_scale="RdYlGn", template="plotly_dark")
         fig.add_hline(y=4, line_dash="dash", line_color="#f43f5e", annotation_text="Target ROAS = 4x")
-        fig.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                          xaxis_tickangle=-45, margin=dict(l=0,r=0,t=10,b=0), height=400)
+        fig.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)",
+                          plot_bgcolor="rgba(0,0,0,0)", xaxis_tickangle=-45,
+                          margin=dict(l=0,r=0,t=10,b=0), height=400)
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
@@ -309,10 +298,9 @@ elif tab_choice == "📣 Digital Marketing":
         st.markdown('<div class="section-title">Budget vs Spend (Utilization)</div>', unsafe_allow_html=True)
         util_df = marketing_df.sort_values("Budget Utilization (%)", ascending=True)
         fig3 = px.bar(util_df, x="Budget Utilization (%)", y="Campaign Name", orientation="h",
-                      color="Budget Utilization (%)", color_continuous_scale="Blues",
-                      template="plotly_dark")
-        fig3.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                            margin=dict(l=0,r=0,t=10,b=0), height=420)
+                      color="Budget Utilization (%)", color_continuous_scale="Blues", template="plotly_dark")
+        fig3.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=0,r=0,t=10,b=0), height=420)
         st.plotly_chart(fig3, use_container_width=True)
 
     with col4:
@@ -325,10 +313,22 @@ elif tab_choice == "📣 Digital Marketing":
                             margin=dict(l=0,r=0,t=10,b=0), height=420, showlegend=False)
         st.plotly_chart(fig4, use_container_width=True)
 
+    # ── FIX: .bar() instead of .background_gradient() — no matplotlib needed ──
     st.markdown('<div class="section-title">Campaign Performance Summary</div>', unsafe_allow_html=True)
-    display_cols = ["Campaign Name","Platform","Budget","Spend","Impressions","Clicks","CTR (%)","Conversions","Conv Rate (%)","ROAS"]
-    st.dataframe(marketing_df[display_cols].style.background_gradient(subset=["ROAS","Conv Rate (%)"], cmap="Greens"),
-                 use_container_width=True)
+    display_cols = ["Campaign Name","Platform","Budget","Spend","Impressions",
+                    "Clicks","CTR (%)","Conversions","Conv Rate (%)","ROAS"]
+    mkt_display = marketing_df[display_cols].copy()
+    st.dataframe(
+        mkt_display.style
+                   .bar(subset=["ROAS"],          color="#10b981", vmin=0)
+                   .bar(subset=["Conv Rate (%)"],  color="#6366f1", vmin=0)
+                   .format({"ROAS":          lambda x: f"{x:.1f}" if pd.notnull(x) else "N/A",
+                             "Budget":        "${:,.0f}",
+                             "Spend":         "${:,.0f}",
+                             "CTR (%)":       "{:.1f}%",
+                             "Conv Rate (%)": "{:.0f}%"}),
+        use_container_width=True
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -341,42 +341,50 @@ elif tab_choice == "🔍 Gap Summary":
     col1, col2 = st.columns(2)
     with col1:
         st.error("**Low / Limited Stock Products**")
-        gap_fashion = fashion_df[fashion_df["Status"].isin(["Low Stock","Limited Stock"])][["Product Name","Category","Stock","Status"]]
-        st.dataframe(gap_fashion, use_container_width=True)
+        gap_f = fashion_df[fashion_df["Status"].isin(["Low Stock","Limited Stock"])][
+            ["Product Name","Category","Stock","Status"]]
+        st.dataframe(gap_f, use_container_width=True)
     with col2:
         st.warning("**High Price, Low Stock (Revenue Risk)**")
-        risk = fashion_df[(fashion_df["Price"] > 80) & (fashion_df["Stock"] < 100)][["Product Name","Price","Stock","Rating"]]
+        risk = fashion_df[(fashion_df["Price"] > 80) & (fashion_df["Stock"] < 100)][
+            ["Product Name","Price","Stock","Rating"]]
         st.dataframe(risk, use_container_width=True)
 
     st.markdown("### 🎪 Event Management Gaps")
     col3, col4 = st.columns(2)
     with col3:
         st.error("**Underperforming Events (Fill Rate < 70%)**")
-        low_fill = events_df[events_df["Fill Rate (%)"] < 70][["Event Name","City","Capacity","Tickets Sold","Fill Rate (%)","Revenue"]].sort_values("Fill Rate (%)")
+        low_fill = events_df[events_df["Fill Rate (%)"] < 70][
+            ["Event Name","City","Capacity","Tickets Sold","Fill Rate (%)","Revenue"]
+        ].sort_values("Fill Rate (%)")
         st.dataframe(low_fill, use_container_width=True)
     with col4:
         st.success("**High Revenue Events (Top Performers)**")
-        top_events = events_df.nlargest(5,"Revenue")[["Event Name","City","Tickets Sold","Revenue","Fill Rate (%)"]]
+        top_events = events_df.nlargest(5, "Revenue")[
+            ["Event Name","City","Tickets Sold","Revenue","Fill Rate (%)"]]
         st.dataframe(top_events, use_container_width=True)
 
     st.markdown("### 📣 Digital Marketing Gaps")
     col5, col6 = st.columns(2)
+    mkt_clean = marketing_df.dropna(subset=["ROAS"])
     with col5:
         st.error("**Below-Target ROAS (< 4x)**")
-        low_roas = marketing_df.dropna(subset=["ROAS"])[marketing_df.dropna(subset=["ROAS"])["ROAS"] < 4][["Campaign Name","Platform","Spend","Conversions","ROAS"]]
+        low_roas = mkt_clean[mkt_clean["ROAS"] < 4][
+            ["Campaign Name","Platform","Spend","Conversions","ROAS"]]
         st.dataframe(low_roas, use_container_width=True)
     with col6:
         st.success("**Top Performing Campaigns (ROAS ≥ 8x)**")
-        top_camp = marketing_df.dropna(subset=["ROAS"])[marketing_df.dropna(subset=["ROAS"])["ROAS"] >= 8][["Campaign Name","Platform","Spend","Conversions","Conv Rate (%)","ROAS"]]
+        top_camp = mkt_clean[mkt_clean["ROAS"] >= 8][
+            ["Campaign Name","Platform","Spend","Conversions","Conv Rate (%)","ROAS"]]
         st.dataframe(top_camp, use_container_width=True)
 
     st.markdown("---")
     st.markdown("### 📋 Strategic Recommendations")
     recs = [
-        ("🛍️ Fashion", "Restock Ankle Strap Heels (60 units) and Ethnic Sherwani (40 units) — both high price, low availability = lost revenue."),
-        ("🛍️ Fashion", "Diamond Earrings (5.0 rating, $299.99) has only 30 units — premium item deserves better shelf depth."),
-        ("🎪 Events", "Indie Film Screening (79%), Photography Exhibition (70%), and Classical Dance Festival (70%) need targeted marketing pushes."),
-        ("🎪 Events", "Chennai & Pune events generate significantly lower revenue — local sponsorship or pricing strategy needed."),
+        ("🛍️ Fashion",   "Restock Ankle Strap Heels (60 units) and Ethnic Sherwani (40 units) — both high price, low availability = lost revenue."),
+        ("🛍️ Fashion",   "Diamond Earrings (5.0 rating, $299.99) has only 30 units — premium item deserves better shelf depth."),
+        ("🎪 Events",    "Indie Film Screening (79%), Photography Exhibition (70%), and Classical Dance Festival (70%) need targeted marketing pushes."),
+        ("🎪 Events",    "Chennai & Pune events generate significantly lower revenue — local sponsorship or pricing strategy needed."),
         ("📣 Marketing", "Pause/reallocate budget from Brand Video – YouTube (ROAS 1.5x) and Twitter/X (1.8x) to top performers."),
         ("📣 Marketing", "Scale WhatsApp Broadcast (ROAS 9.8x) and Flash Sale pushes (ROAS 11.2x) — highest efficiency channels."),
         ("📣 Marketing", "Instagram Influencer Collab generated 2,250 conversions at $3K spend — increase influencer budget allocation."),
