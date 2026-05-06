@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import hashlib
 import requests
 from bs4 import BeautifulSoup
 from sklearn.linear_model import LinearRegression
@@ -11,11 +12,36 @@ from sklearn.linear_model import LinearRegression
 st.set_page_config(page_title="Smart SaaS Dashboard", layout="wide")
 
 # -----------------------------
+# LOGIN SYSTEM
+# -----------------------------
+USERS = {
+    "admin": hashlib.sha256("admin123".encode()).hexdigest()
+}
+
+def login(user, pwd):
+    return USERS.get(user) == hashlib.sha256(pwd.encode()).hexdigest()
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    st.title("🔐 Login")
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if login(u, p):
+            st.session_state.logged_in = True
+            st.rerun()
+        else:
+            st.error("Invalid credentials")
+    st.stop()
+
+# -----------------------------
 # SAMPLE DATA
 # -----------------------------
-@st.cache_data
 def generate_data():
-    months = pd.date_range("2024-01-01", periods=24, freq="ME")  # FIXED
+    months = pd.date_range("2024-01-01", periods=24, freq="M")
     templates = ["Real Estate", "Transport", "Business"]
 
     data = []
@@ -54,10 +80,8 @@ df["Score"] = (
 # -----------------------------
 st.sidebar.title("⚙️ Controls")
 
-dashboard = st.sidebar.radio(
-    "Select Business",
-    ["Real Estate", "Transport", "Business"]
-)
+dashboard = st.sidebar.radio("Select Business",
+                             ["Real Estate", "Transport", "Business"])
 
 date_range = st.sidebar.date_input(
     "Date Range",
@@ -76,14 +100,10 @@ filtered_df = df[
 ]
 
 # -----------------------------
-# HEADER
+# DASHBOARD
 # -----------------------------
-st.title("🚀 Smart SaaS Dashboard")
-st.caption("Analyze • Forecast • Optimize")
+st.title(f"📊 {dashboard} Dashboard")
 
-# -----------------------------
-# KPI METRICS
-# -----------------------------
 c1, c2, c3, c4 = st.columns(4)
 
 c1.metric("Leads", int(filtered_df["Leads"].sum()))
@@ -94,7 +114,7 @@ c4.metric("Score", round(filtered_df["Score"].mean(), 2))
 # -----------------------------
 # TREND
 # -----------------------------
-st.subheader("📈 Performance Trend")
+st.subheader("📈 Trend")
 
 trend = filtered_df.groupby("Month")[["Conversion_Rate", "Performance"]].mean()
 st.line_chart(trend)
@@ -103,7 +123,7 @@ st.line_chart(trend)
 # FORECAST
 # -----------------------------
 def forecast(df, col):
-    df = df.sort_values("Month").copy()
+    df = df.sort_values("Month")
     df["t"] = range(len(df))
 
     model = LinearRegression()
@@ -114,22 +134,22 @@ def forecast(df, col):
     })
 
     future[col] = model.predict(future[["t"]])
-    future["Month"] = pd.date_range(df["Month"].max(), periods=60, freq="ME")  # FIXED
+    future["Month"] = pd.date_range(df["Month"].max(), periods=60, freq="M")
 
     return future
 
-st.subheader("🔮 Conversion Forecast (5 Years)")
+st.subheader("🔮 5-Year Forecast")
 
 past = filtered_df.groupby("Month")["Conversion_Rate"].mean().reset_index()
-future = forecast(past, "Conversion_Rate")
+future = forecast(past.copy(), "Conversion_Rate")
 
 combined = pd.concat([past, future])
 st.line_chart(combined.set_index("Month"))
 
 # -----------------------------
-# WEBSITE AUDIT
+# WEBSITE AUDIT ENGINE
 # -----------------------------
-st.subheader("🌐 Website Audit Tool")
+st.subheader("🌐 Website Audit")
 
 url = st.text_input("Enter Website URL")
 
@@ -138,13 +158,15 @@ def audit_website(url):
         r = requests.get(url, timeout=5)
         soup = BeautifulSoup(r.text, "html.parser")
 
+        # SEO checks
         title = soup.title.string if soup.title else "Missing"
         meta = soup.find("meta", attrs={"name": "description"})
 
+        # Links
         links = soup.find_all("a")
         broken = 0
 
-        for link in links[:20]:
+        for link in links[:20]:  # limit for safety
             href = link.get("href")
             if href and href.startswith("http"):
                 try:
@@ -155,10 +177,10 @@ def audit_website(url):
                     broken += 1
 
         return {
-            "Title": title,
-            "Meta Description": "Present" if meta else "Missing",
-            "Total Links": len(links),
-            "Broken Links": broken
+            "title": title,
+            "meta": "Present" if meta else "Missing",
+            "total_links": len(links),
+            "broken_links": broken
         }
 
     except:
@@ -168,21 +190,25 @@ if st.button("Run Audit"):
     result = audit_website(url)
 
     if result:
-        st.json(result)
+        st.write(result)
 
-        st.subheader("🧠 Recommendations")
+        # Situations & Solutions
+        st.subheader("🧠 Situations & Solutions")
 
-        if result["Meta Description"] == "Missing":
-            st.warning("Add meta description for SEO")
+        if result["meta"] == "Missing":
+            st.warning("❌ Situation: No meta description")
+            st.success("✅ Solution: Add SEO meta tags")
 
-        if result["Broken Links"] > 5:
-            st.error("Fix broken links immediately")
+        if result["broken_links"] > 5:
+            st.error("❌ Situation: Many broken links")
+            st.success("✅ Solution: Fix all 404 links")
 
-        if result["Total Links"] < 10:
-            st.info("Improve internal linking")
+        if result["total_links"] < 10:
+            st.warning("❌ Situation: Low internal linking")
+            st.success("✅ Solution: Add internal navigation links")
 
     else:
-        st.error("Invalid URL or blocked request")
+        st.error("Invalid URL or access denied")
 
 # -----------------------------
 # AI INSIGHTS
@@ -190,16 +216,16 @@ if st.button("Run Audit"):
 st.subheader("🤖 Smart Insights")
 
 if filtered_df["Conversion_Rate"].mean() < 30:
-    st.warning("Low conversion rate → Improve CTA & UX")
+    st.warning("Low conversion → Improve CTA")
 
 if filtered_df["SEO_Score"].mean() < 50:
-    st.info("SEO score is low → Optimize keywords & content")
+    st.info("SEO weak → optimize content")
 
 if filtered_df["Performance"].mean() < 50:
-    st.warning("Performance is poor → Improve speed & optimization")
+    st.warning("Performance issue → optimize speed")
 
 # -----------------------------
-# THEME STYLING
+# THEME
 # -----------------------------
 st.markdown(f"""
 <style>
