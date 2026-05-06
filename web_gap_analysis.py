@@ -1,58 +1,19 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import hashlib
 import requests
 from bs4 import BeautifulSoup
 from sklearn.linear_model import LinearRegression
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
 
-# =============================
+# -----------------------------
 # CONFIG
-# =============================
-st.set_page_config(page_title="AI SaaS Growth OS", layout="wide")
+# -----------------------------
+st.set_page_config(page_title="Smart SaaS Dashboard", layout="wide")
 
-# =============================
-# USERS + ROLES
-# =============================
-USERS = {
-    "admin": {"pwd": hashlib.sha256("admin123".encode()).hexdigest(), "role": "admin"},
-    "client": {"pwd": hashlib.sha256("client123".encode()).hexdigest(), "role": "client"},
-    "viewer": {"pwd": hashlib.sha256("view123".encode()).hexdigest(), "role": "viewer"},
-}
-
-def login(user, pwd):
-    u = USERS.get(user)
-    if u and u["pwd"] == hashlib.sha256(pwd.encode()).hexdigest():
-        return True, u["role"]
-    return False, None
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.role = None
-
-# =============================
-# LOGIN PAGE
-# =============================
-if not st.session_state.logged_in:
-    st.title("🔐 SaaS Login")
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        ok, role = login(u, p)
-        if ok:
-            st.session_state.logged_in = True
-            st.session_state.role = role
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
-    st.stop()
-
-# =============================
-# SAMPLE DATA ENGINE
-# =============================
+# -----------------------------
+# SAMPLE DATA
+# -----------------------------
+@st.cache_data
 def generate_data():
     months = pd.date_range("2024-01-01", periods=24, freq="ME")  # FIXED
     templates = ["Real Estate", "Transport", "Business"]
@@ -73,13 +34,14 @@ def generate_data():
                 "SEO_Score": np.random.randint(20, 90),
                 "Performance": np.random.randint(30, 90)
             })
+
     return pd.DataFrame(data)
 
 df = generate_data()
 
-# =============================
-# METRICS ENGINE
-# =============================
+# -----------------------------
+# KPI SCORE
+# -----------------------------
 df["Score"] = (
     df["Conversion_Rate"] * 0.4 +
     df["SEO_Score"] * 0.2 +
@@ -87,15 +49,15 @@ df["Score"] = (
     (100 - df["Broken_Links"]) * 0.2
 )
 
-df["Opportunity_Score"] = df["Leads"] * (100 - df["Conversion_Rate"])
-df["Revenue"] = df["Conversions"] * 1000
-
-# =============================
+# -----------------------------
 # SIDEBAR
-# =============================
+# -----------------------------
 st.sidebar.title("⚙️ Controls")
 
-dashboard = st.sidebar.radio("Business", ["Real Estate", "Transport", "Business"])
+dashboard = st.sidebar.radio(
+    "Select Business",
+    ["Real Estate", "Transport", "Business"]
+)
 
 date_range = st.sidebar.date_input(
     "Date Range",
@@ -104,175 +66,141 @@ date_range = st.sidebar.date_input(
 
 theme = st.sidebar.color_picker("Theme", "#1f77b4")
 
-# =============================
+# -----------------------------
 # FILTER
-# =============================
+# -----------------------------
 filtered_df = df[
     (df["Template"] == dashboard) &
     (df["Month"] >= pd.to_datetime(date_range[0])) &
     (df["Month"] <= pd.to_datetime(date_range[1]))
 ]
 
-# =============================
+# -----------------------------
 # HEADER
-# =============================
-st.title("🚀 AI SaaS Growth OS")
-st.caption("Predict • Analyze • Optimize • Scale")
+# -----------------------------
+st.title("🚀 Smart SaaS Dashboard")
+st.caption("Analyze • Forecast • Optimize")
 
-if st.session_state.role == "viewer":
-    st.warning("👁 Read-only access enabled")
-
-# =============================
-# KPI DASHBOARD
-# =============================
+# -----------------------------
+# KPI METRICS
+# -----------------------------
 c1, c2, c3, c4 = st.columns(4)
 
 c1.metric("Leads", int(filtered_df["Leads"].sum()))
 c2.metric("Conversions", int(filtered_df["Conversions"].sum()))
-c3.metric("Conv %", round(filtered_df["Conversion_Rate"].mean(), 2))
+c3.metric("Conversion %", round(filtered_df["Conversion_Rate"].mean(), 2))
 c4.metric("Score", round(filtered_df["Score"].mean(), 2))
 
-# =============================
+# -----------------------------
 # TREND
-# =============================
-st.subheader("📈 Trend")
+# -----------------------------
+st.subheader("📈 Performance Trend")
+
 trend = filtered_df.groupby("Month")[["Conversion_Rate", "Performance"]].mean()
 st.line_chart(trend)
 
-# =============================
-# FORECAST ENGINE
-# =============================
-st.subheader("🔮 Forecast")
-
+# -----------------------------
+# FORECAST
+# -----------------------------
 def forecast(df, col):
-    df = df.sort_values("Month")
+    df = df.sort_values("Month").copy()
     df["t"] = range(len(df))
 
     model = LinearRegression()
     model.fit(df[["t"]], df[col])
 
-    future = pd.DataFrame({"t": range(len(df), len(df) + 60)})
+    future = pd.DataFrame({
+        "t": range(len(df), len(df) + 60)
+    })
+
     future[col] = model.predict(future[["t"]])
     future["Month"] = pd.date_range(df["Month"].max(), periods=60, freq="ME")  # FIXED
 
     return future
 
+st.subheader("🔮 Conversion Forecast (5 Years)")
+
 past = filtered_df.groupby("Month")["Conversion_Rate"].mean().reset_index()
 future = forecast(past, "Conversion_Rate")
 
-st.line_chart(future.set_index("Month"))
+combined = pd.concat([past, future])
+st.line_chart(combined.set_index("Month"))
 
-# =============================
-# HIGH POTENTIAL
-# =============================
-st.subheader("🔥 High Potential")
-st.dataframe(
-    filtered_df.sort_values("Opportunity_Score", ascending=False)
-    [["Month", "Leads", "Conversion_Rate", "Opportunity_Score"]].head(5)
-)
+# -----------------------------
+# WEBSITE AUDIT
+# -----------------------------
+st.subheader("🌐 Website Audit Tool")
 
-# =============================
-# ANOMALY DETECTION
-# =============================
-st.subheader("🚨 Anomalies")
+url = st.text_input("Enter Website URL")
 
-mean = filtered_df["Conversion_Rate"].mean()
-std = filtered_df["Conversion_Rate"].std()
-
-anomaly = filtered_df[
-    (filtered_df["Conversion_Rate"] > mean + 2*std) |
-    (filtered_df["Conversion_Rate"] < mean - 2*std)
-]
-
-if not anomaly.empty:
-    st.dataframe(anomaly[["Month", "Conversion_Rate"]])
-else:
-    st.success("No anomalies detected")
-
-# =============================
-# AI INSIGHTS
-# =============================
-st.subheader("🤖 AI Insight Engine")
-
-def ai_insight(df):
-    return f"""
-    📊 Business Summary:
-    - Avg Conversion: {df['Conversion_Rate'].mean():.2f}
-    - Avg SEO Score: {df['SEO_Score'].mean():.2f}
-    - Avg Performance: {df['Performance'].mean():.2f}
-
-    💡 Insight:
-    Focus on improving conversion rate and SEO optimization for growth.
-    """
-
-if st.button("Generate AI Insight"):
-    st.write(ai_insight(filtered_df))
-
-# =============================
-# PERFORMANCE RANKING
-# =============================
-st.subheader("🏆 Ranking")
-
-best = filtered_df.sort_values("Score", ascending=False).iloc[0]
-worst = filtered_df.sort_values("Score", ascending=True).iloc[0]
-
-col1, col2 = st.columns(2)
-
-col1.success(f"🔥 Best: {best['Month'].date()} | Score {round(best['Score'],2)}")
-col2.error(f"⚠️ Worst: {worst['Month'].date()} | Score {round(worst['Score'],2)}")
-
-# =============================
-# REVENUE
-# =============================
-st.subheader("💰 Revenue")
-st.metric("Total Revenue", f"₹{int(filtered_df['Revenue'].sum()):,}")
-
-# =============================
-# WEBSITE SCRAPER
-# =============================
-st.subheader("🌐 Website Audit")
-
-url = st.text_input("Enter URL")
-
-def scrape(url):
+def audit_website(url):
     try:
         r = requests.get(url, timeout=5)
-        s = BeautifulSoup(r.text, "html.parser")
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        title = soup.title.string if soup.title else "Missing"
+        meta = soup.find("meta", attrs={"name": "description"})
+
+        links = soup.find_all("a")
+        broken = 0
+
+        for link in links[:20]:
+            href = link.get("href")
+            if href and href.startswith("http"):
+                try:
+                    res = requests.get(href, timeout=3)
+                    if res.status_code >= 400:
+                        broken += 1
+                except:
+                    broken += 1
 
         return {
-            "title": s.title.text if s.title else "Missing",
-            "links": len(s.find_all("a")),
-            "images": len(s.find_all("img"))
+            "Title": title,
+            "Meta Description": "Present" if meta else "Missing",
+            "Total Links": len(links),
+            "Broken Links": broken
         }
+
     except:
         return None
 
 if st.button("Run Audit"):
-    res = scrape(url)
-    if res:
-        st.json(res)
+    result = audit_website(url)
+
+    if result:
+        st.json(result)
+
+        st.subheader("🧠 Recommendations")
+
+        if result["Meta Description"] == "Missing":
+            st.warning("Add meta description for SEO")
+
+        if result["Broken Links"] > 5:
+            st.error("Fix broken links immediately")
+
+        if result["Total Links"] < 10:
+            st.info("Improve internal linking")
+
     else:
-        st.error("Invalid URL")
+        st.error("Invalid URL or blocked request")
 
-# =============================
-# PDF EXPORT
-# =============================
-st.subheader("📄 Export Report")
+# -----------------------------
+# AI INSIGHTS
+# -----------------------------
+st.subheader("🤖 Smart Insights")
 
-def generate_pdf(text):
-    file = "report.pdf"
-    doc = SimpleDocTemplate(file)
-    styles = getSampleStyleSheet()
-    doc.build([Paragraph(text, styles["Normal"])])
-    return file
+if filtered_df["Conversion_Rate"].mean() < 30:
+    st.warning("Low conversion rate → Improve CTA & UX")
 
-if st.button("Generate PDF"):
-    file = generate_pdf(str(filtered_df.describe()))
-    st.success("PDF Generated: report.pdf")
+if filtered_df["SEO_Score"].mean() < 50:
+    st.info("SEO score is low → Optimize keywords & content")
 
-# =============================
-# THEME
-# =============================
+if filtered_df["Performance"].mean() < 50:
+    st.warning("Performance is poor → Improve speed & optimization")
+
+# -----------------------------
+# THEME STYLING
+# -----------------------------
 st.markdown(f"""
 <style>
 h1, h2, h3 {{
