@@ -107,7 +107,7 @@ st.sidebar.title("Gap Analysis")
 st.sidebar.markdown("---")
 tab_choice = st.sidebar.radio("Navigate", ["🛍️ Fashion", "🎪 Event Management", "📣 Digital Marketing", "🔍 Gap Summary"])
 st.sidebar.markdown("---")
-st.sidebar.caption("Data: Web Gap Analysis Dataset · 2025")
+st.sidebar.caption("Data: Web Gap Analysis Dataset · 2026")
 
 # ════════════════════════════════════════════════════════════════════════════
 # TAB 1 — FASHION
